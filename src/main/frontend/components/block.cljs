@@ -2537,6 +2537,7 @@
                 :containerid (:container-id config)
                 :data-type (name block-type)
                 :style {:width "100%"
+                        :text-align "left"
                         :pointer-events (when stop-events? "none")}}
 
                 (not (string/blank?
@@ -2572,7 +2573,8 @@
                                                 (block-content-on-pointer-down e block block-id edit-input-id content config))))))))]
     [:div.block-content.inline
      (cond-> {:id (str "block-content-" uuid)
-              :key (str "block-content-" uuid)}
+              :key (str "block-content-" uuid)
+              :dir "auto"}
        true
        (merge attrs))
 
