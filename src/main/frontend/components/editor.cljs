@@ -746,6 +746,8 @@
                :auto-focus true
                :auto-capitalize (if (util/mobile?) "sentences" "off")
                :auto-correct (if (util/mobile?) "true" "false")
+               :dir "auto"
+               :style {:text-align "left"}
                :class heading-class}
                (some? parent-block)
                (assoc :parentblockid (str (:block/uuid parent-block)))
