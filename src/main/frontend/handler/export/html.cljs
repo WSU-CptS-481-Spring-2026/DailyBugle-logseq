@@ -217,9 +217,13 @@
 
 (defn- block-src
   [loc {:keys [language lines]}]
-  (let [code (cond-> [:pre]
+  (let [transform-src-lines-fn (get-in *state* [:export-options :transform-src-lines-fn])
+        lines* (if (fn? transform-src-lines-fn)
+                 (transform-src-lines-fn language lines)
+                 lines)
+        code (cond-> [:pre]
                (some? language) (conj {:data-lang language})
-               true (concatv lines))]
+               true (concatv lines*))]
     (add-items-in-li loc [code])))
 
 (defn- block-quote
@@ -384,7 +388,8 @@
                               {:remove-emphasis? (contains? remove-options :emphasis)
                                :remove-page-ref-brackets? (contains? remove-options :page-ref)
                                :remove-tags? (contains? remove-options :tag)
-                               :keep-only-level<=N (:keep-only-level<=N other-options)}})]
+                               :keep-only-level<=N (:keep-only-level<=N other-options)
+                               :transform-src-lines-fn (:transform-src-lines-fn options)}})]
       (let [ast (util/profile :mldoc/->edn (mldoc/->edn content format))
             ast (util/profile :remove-pos (mapv common/remove-block-ast-pos ast))
             ast (removev common/Properties-block-ast? ast)
@@ -424,13 +429,16 @@
   (let [content
         (if (uuid? root-block-uuids-or-page-uuid)
           ;; page
-          (common/get-page-content root-block-uuids-or-page-uuid)
-          (common/root-block-uuids->content repo root-block-uuids-or-page-uuid))
+          (common/get-page-content root-block-uuids-or-page-uuid (:other-options options))
+          (common/root-block-uuids->content repo root-block-uuids-or-page-uuid (:other-options options)))
         first-block (and (coll? root-block-uuids-or-page-uuid)
                          (db/entity [:block/uuid (first root-block-uuids-or-page-uuid)]))
-        format (get first-block :block/format :markdown)]
+        format (get first-block :block/format :markdown)
+        transform-src-lines-fn (common/build-transform-src-lines-fn (:other-options options))
+        options' (cond-> options
+                   transform-src-lines-fn (assoc :transform-src-lines-fn transform-src-lines-fn))]
     (binding [cli-export-common/*current-db* (conn/get-db repo)
-              cli-export-common/*content-config* (common/get-content-config)]
-      (export-helper content format options))))
+              cli-export-common/*content-config* (common/get-content-config (:other-options options))]
+      (export-helper content format options'))))
 
 ;;; export fns (ends)

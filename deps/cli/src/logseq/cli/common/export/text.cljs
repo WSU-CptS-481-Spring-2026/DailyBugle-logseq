@@ -118,7 +118,11 @@
   (let [level (dec (get *state* :current-level 1))
         lines* (if (= "no-indent" (get-in *state* [:export-options :indent-style]))
                  (remove-max-prefix-spaces lines)
-                 lines)]
+                 lines)
+        transform-src-lines-fn (get-in *state* [:export-options :transform-src-lines-fn])
+        lines* (if (fn? transform-src-lines-fn)
+                 (transform-src-lines-fn language lines*)
+                 lines*)]
     (concatv
      [(indent-with-2-spaces level) (raw-text "```")]
      (when language [(raw-text language)])
@@ -462,7 +466,8 @@
                                :remove-tags? (contains? remove-options :tag)
                                :remove-properties? (contains? remove-options :property)
                                :keep-only-level<=N (:keep-only-level<=N other-options)
-                               :newline-after-block (:newline-after-block other-options)}})]
+                               :newline-after-block (:newline-after-block other-options)
+                               :transform-src-lines-fn (:transform-src-lines-fn options)}})]
       (let [ast (gp-mldoc/->db-edn content format)
             ast (mapv cli-export-common/remove-block-ast-pos ast)
             ast (removev cli-export-common/Properties-block-ast? ast)
