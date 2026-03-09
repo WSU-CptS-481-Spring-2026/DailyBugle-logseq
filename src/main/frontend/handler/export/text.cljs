@@ -20,7 +20,7 @@
   "options:
   :indent-style \"dashes\" | \"spaces\" | \"no-indent\"
   :remove-options [:emphasis :page-ref :tag :property]
-  :other-options {:keep-only-level<=N int :newline-after-block bool}"
+  :other-options {:keep-only-level<=N int :newline-after-block bool :include-calc-results bool}"
   [repo root-block-uuids-or-page-uuid options]
   {:pre [(or (coll? root-block-uuids-or-page-uuid)
              (uuid? root-block-uuids-or-page-uuid))]}
@@ -32,18 +32,21 @@
              ;; page
               (and (= 1 (count root-block-uuids-or-page-uuid))
                    (ldb/page? (db/entity [:block/uuid (first root-block-uuids-or-page-uuid)])))
-              (common/get-page-content (first root-block-uuids-or-page-uuid))
+              (common/get-page-content (first root-block-uuids-or-page-uuid) (:other-options options))
               (and (coll? root-block-uuids-or-page-uuid) (every? #(ldb/page? (db/entity [:block/uuid %])) root-block-uuids-or-page-uuid))
               (->> (mapv (fn [id] (:block/title (db/entity [:block/uuid id]))) root-block-uuids-or-page-uuid)
                    (string/join "\n"))
               :else
-              (common/root-block-uuids->content repo root-block-uuids-or-page-uuid))
+              (common/root-block-uuids->content repo root-block-uuids-or-page-uuid (:other-options options)))
             first-block (and (coll? root-block-uuids-or-page-uuid)
                              (db/entity [:block/uuid (first root-block-uuids-or-page-uuid)]))
-            format (get first-block :block/format :markdown)]
+            format (get first-block :block/format :markdown)
+            transform-src-lines-fn (common/build-transform-src-lines-fn (:other-options options))
+            options' (cond-> options
+                       transform-src-lines-fn (assoc :transform-src-lines-fn transform-src-lines-fn))]
         (binding [cli-export-common/*current-db* (conn/get-db repo)
-                  cli-export-common/*content-config* (common/get-content-config)]
-          (cli-export-text/export-helper content format options)))
+                  cli-export-common/*content-config* (common/get-content-config (:other-options options))]
+          (cli-export-text/export-helper content format options')))
       (catch :default e
         (js/console.error e)))))
 

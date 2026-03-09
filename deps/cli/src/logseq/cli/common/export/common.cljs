@@ -50,7 +50,8 @@
     :remove-tags? false
     :remove-properties? true
     :keep-only-level<=N :all
-    :newline-after-block false}})
+    :newline-after-block false
+    :transform-src-lines-fn nil}})
 
 ;; Global vars that are not explicitly passed in all fns
 ;; These vars must be bound in order to use most fns in this namespace

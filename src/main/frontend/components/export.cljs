@@ -227,6 +227,7 @@
   (rum/local nil ::content)
   {:will-mount (fn [state]
                  (let [top-level-uuids (get-top-level-uuids (first (:rum/args state)))]
+                   (state/update-export-block-text-other-options! :include-calc-results false)
                    (reset! *export-block-type :text)
                    (if (= @*export-block-type :png)
                      (do (reset! (::content state) nil)
@@ -368,6 +369,18 @@
                                        (reset! *content (export-helper top-level-uuids)))})
             [:div {:style {:visibility (if (#{:text} tp) "visible" "hidden")}}
              "remove properties"]]
+
+           [:div.flex.items-center
+            (ui/checkbox {:class "mr-2"
+                          :style {:visibility (if (#{:text :html} tp) "visible" "hidden")}
+                          :value (boolean (:include-calc-results @*text-other-options))
+                          :on-change (fn [_e]
+                                       (let [next-value (not (boolean (:include-calc-results @*text-other-options)))]
+                                         (state/update-export-block-text-other-options! :include-calc-results next-value)
+                                         (reset! *text-other-options (state/get-export-block-text-other-options))
+                                         (reset! *content (export-helper top-level-uuids))))})
+            [:div {:style {:visibility (if (#{:text :html} tp) "visible" "hidden")}}
+             "include calc answers"]]
 
            [:div.flex.items-center
             [:label.mr-2 {:style {:visibility (if (#{:text :html :opml} tp) "visible" "hidden")}}

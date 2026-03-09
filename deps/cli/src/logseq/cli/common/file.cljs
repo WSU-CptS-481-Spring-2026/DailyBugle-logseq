@@ -12,12 +12,22 @@
   (let [lines (string/split-lines content)]
     (string/join (str "\n" spaces-tabs) lines)))
 
+(defn- maybe-transform-calc-mode-content
+  [block content context]
+  (let [transform-calc-mode-content-fn (:transform-calc-mode-content-fn context)]
+    (if (and (fn? transform-calc-mode-content-fn)
+             (= :code (:logseq.property.node/display-type block))
+             (= "calc" (some-> (:logseq.property.code/lang block) string/trim string/lower-case)))
+      (transform-calc-mode-content-fn content)
+      content)))
+
 (defn- transform-content
   [db b level {:keys [heading-to-list?]} context]
   (let [heading (:logseq.property/heading b)
         ;; replace [[uuid]] with block's content
         title (db-content/recur-replace-uuid-in-block-title (d/entity db (:db/id b)))
         content (or title "")
+        content (maybe-transform-calc-mode-content b content context)
         content (let [[prefix spaces-tabs]
                       (let [level (if (and heading-to-list? heading)
                                     (if (> heading 1)
