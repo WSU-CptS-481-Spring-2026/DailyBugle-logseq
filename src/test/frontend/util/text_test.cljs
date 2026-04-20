@@ -1,6 +1,13 @@
 (ns frontend.util.text-test
-  (:require [cljs.test :refer [are deftest]]
+  (:require [cljs.test :refer [are deftest is testing]]
             [frontend.util.text :as text-util]))
+
+(deftest build-data-value
+  (testing "serializes values as valid JSON"
+    (is (= "[\"alpha\",\"beta\"]"
+           (text-util/build-data-value ["alpha" "beta"])))
+    (is (= "[\"he said \\\"hi\\\"\",\"path\\\\name\"]"
+           (text-util/build-data-value ["he said \"hi\"" "path\\name"])))))
 
 (deftest get-string-all-indexes
   (are [x y] (= x y)

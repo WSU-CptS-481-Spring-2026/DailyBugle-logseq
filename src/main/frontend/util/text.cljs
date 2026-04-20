@@ -4,7 +4,6 @@
   (:require [clojure.string :as string]
             [frontend.config :as config]
             [frontend.util :as util]
-            [goog.string :as gstring]
             [logseq.cli.text-util :as cli-text-util]))
 
 (def bilibili-regex #"^((?:https?:)?//)?((?:www).)?((?:bilibili.com))(/(?:video/)?)([\w-]+)(\?p=(\d+))?(\S+)?$")
@@ -22,9 +21,7 @@
 
 (defn build-data-value
   [col]
-  (let [items (map (fn [item] (str "\"" item "\"")) col)]
-    (gstring/format "[%s]"
-                    (string/join ", " items))))
+  (.stringify js/JSON (clj->js col)))
 
 (defn media-link?
   [media-formats s]
