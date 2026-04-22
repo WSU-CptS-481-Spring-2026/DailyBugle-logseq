@@ -1733,6 +1733,38 @@
   [input pos]
   (contains? #{" " "\t"} (get (.-value input) (- pos 2))))
 
+(defn- command-trigger?
+  [content pos last-input-char input]
+  (and (= last-input-char commands/command-trigger)
+       (or (re-find #"(?m)^/" content)
+           (start-of-new-word? input pos))))
+
+(defn- clear-hashtag-search?
+  [last-input-char last-prev-input-char]
+  (or (= last-input-char last-prev-input-char commands/hashtag)
+      (and (= last-prev-input-char commands/hashtag)
+           (= last-input-char " "))))
+
+(defn- hashtag-trigger?
+  [content pos last-input-char]
+  (and (= last-input-char commands/hashtag)
+       ;; Only trigger at beginning of a line, before whitespace or after a reference
+       (or (re-find #"(?m)^#" content)
+           (contains? #{" " "\t"} (get content (- pos 2)))
+           (= page-ref/right-brackets (common-util/safe-subs content (- pos 3) (dec pos))))))
+
+(defn- open-command-search!
+  [input]
+  (state/set-editor-action-data! {:pos (cursor/get-caret-pos input)})
+  (commands/reinit-matched-commands!)
+  (state/set-editor-show-commands!))
+
+(defn- open-hashtag-search!
+  [input pos]
+  (state/set-editor-action-data! {:pos (cursor/get-caret-pos input)})
+  (state/set-editor-last-pos! pos)
+  (state/set-editor-action! :page-search-hashtag))
+
 (defn handle-last-input []
   (let [input           (state/get-input)
         input-id        (state/get-edit-input-id)
@@ -1750,31 +1782,32 @@
       (p/let [_ (state/pub-event! [:editor/toggle-own-number-list edit-block])]
         (state/set-edit-content! input-id ""))
 
-      (and (= last-input-char commands/command-trigger)
-           (or (re-find #"(?m)^/" (str (.-value input))) (start-of-new-word? input pos)))
-      (do
-        (state/set-editor-action-data! {:pos (cursor/get-caret-pos input)})
-        (commands/reinit-matched-commands!)
-        (state/set-editor-show-commands!))
+      (command-trigger? content pos last-input-char input)
+      (open-command-search! input)
 
-      (or (= last-input-char last-prev-input-char commands/hashtag)
-          (and (= last-prev-input-char commands/hashtag)
-               (= last-input-char " ")))
+      (clear-hashtag-search? last-input-char last-prev-input-char)
       (state/clear-editor-action!)
 
-      ;; Open "Search page or New page" auto-complete
-      (and (= last-input-char commands/hashtag)
-             ;; Only trigger at beginning of a line, before whitespace or after a reference
-           (or (re-find #"(?m)^#" (str (.-value input)))
-               (start-of-new-word? input pos)
-               (= page-ref/right-brackets (common-util/safe-subs (str (.-value input)) (- pos 3) (dec pos)))))
-      (do
-        (state/set-editor-action-data! {:pos (cursor/get-caret-pos input)})
-        (state/set-editor-last-pos! pos)
-        (state/set-editor-action! :page-search-hashtag))
+      (hashtag-trigger? content pos last-input-char)
+      (open-hashtag-search! input pos)
 
       :else
       nil)))
+
+(defn- slash-followed-by-space?
+  [value]
+  (= commands/command-trigger (second (re-find #"(\S+)\s+$" value))))
+
+(defn- update-command-match-state!
+  [input]
+  (let [command (get-last-command input)
+        matched-commands (get-matched-commands command)]
+    (if (seq matched-commands)
+      (commands/set-matched-commands! command matched-commands)
+      (if (and (string? command)
+               (> (- (count command) (count @commands/*latest-matched-command)) 2))
+        (state/clear-editor-action!)
+        (reset! commands/*matched-commands nil)))))
 
 (defn get-selected-text
   []
@@ -2723,15 +2756,9 @@
 
           ;; When you type something after /
           (and (= :commands (state/get-editor-action)) (not= k commands/command-trigger))
-          (if (= commands/command-trigger (second (re-find #"(\S+)\s+$" value)))
+          (if (slash-followed-by-space? value)
             (state/clear-editor-action!)
-            (let [command (get-last-command input)
-                  matched-commands (get-matched-commands command)]
-              (if (seq matched-commands)
-                (commands/set-matched-commands! command matched-commands)
-                (if (> (- (count command) (count @commands/*latest-matched-command)) 2)
-                  (state/clear-editor-action!)
-                  (reset! commands/*matched-commands nil)))))
+            (update-command-match-state! input))
 
           :else
           (default-case-for-keyup-handler input current-pos k code is-processed?))

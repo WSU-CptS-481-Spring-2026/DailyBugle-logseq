@@ -145,6 +145,10 @@
     (is (= :commands (state/get-editor-action))
         "Command search on start of a new line")
 
+    (handle-last-input-handler {:value "some\t/"})
+    (is (= :commands (state/get-editor-action))
+        "Command search on start of a new tab-separated word")
+
     (handle-last-input-handler {:value "https://"})
     (is (= nil (state/get-editor-action))
         "No command search in middle of a word")
@@ -178,6 +182,11 @@
                                 :cursor-pos 5})
     (is (= :page-search-hashtag (state/get-editor-action))
         "Page search if hashtag is in middle of line and after a space")
+
+    (handle-last-input-handler {:value "[[some-page]]#"
+                                :cursor-pos 13})
+    (is (= :page-search-hashtag (state/get-editor-action))
+        "Page search if hashtag is typed right after a page reference")
 
     (handle-last-input-handler {:value "String#" :cursor-pos 7})
     (is (= nil (state/get-editor-action))
