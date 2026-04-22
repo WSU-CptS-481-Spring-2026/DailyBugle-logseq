@@ -7,6 +7,36 @@
 (use-fixtures :each {:before test-helper/start-test-db!
                      :after test-helper/destroy-test-db!})
 
+(deftest redirect-to-page-helper-test
+  (testing "valid-page-ref? accepts uuids and non-blank strings"
+    (is (true? (#'route-handler/valid-page-ref? (random-uuid))))
+    (is (true? (#'route-handler/valid-page-ref? "home")))
+    (is (false? (#'route-handler/valid-page-ref? "")))
+    (is (false? (#'route-handler/valid-page-ref? nil))))
+
+  (testing "build-page-query-params builds anchor params and lets explicit anchor win"
+    (is (= {:anchor "ls-block-b1"}
+           (#'route-handler/build-page-query-params {:block-id "b1"})))
+    (is (= {:anchor "custom-anchor"}
+           (#'route-handler/build-page-query-params {:block-id "b1"
+                                                     :anchor "custom-anchor"})))
+    (is (nil? (#'route-handler/build-page-query-params {}))))
+
+  (testing "build-page-redirect adds optional query params and push flag"
+    (is (= {:to :page
+            :path-params {:name "page"}}
+           (#'route-handler/build-page-redirect "page" {})))
+    (is (= {:to :page
+            :path-params {:name "page"}
+            :query-params {:anchor "ls-block-b2"}}
+           (#'route-handler/build-page-redirect "page" {:block-id "b2"})))
+    (is (= {:to :page
+            :path-params {:name "page"}
+            :query-params {:anchor "anchor-1"}
+            :push false}
+           (#'route-handler/build-page-redirect "page" {:anchor "anchor-1"
+                                                        :push false})))))
+
 (deftest default-page-route
   (let [journal-uuid (random-uuid)]
     (load-test-files

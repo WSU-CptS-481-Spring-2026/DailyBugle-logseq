@@ -70,37 +70,56 @@
     {:to :page
      :path-params {:name (str page-name)}}))
 
+(defn- valid-page-ref?
+  [page-name]
+  (or (uuid? page-name)
+      (and (string? page-name) (not (string/blank? page-name)))))
+
+(defn- internal-page?
+  [page]
+  (and (not config/dev?)
+       (or (and (ldb/hidden? page) (not (ldb/property? page)))
+           (and (ldb/built-in? page) (ldb/private-built-in-page? page)))))
+
+(defn- resolve-page-alias
+  [page ignore-alias?]
+  (when-not ignore-alias?
+    (db/get-alias-source-page (state/get-current-repo) (:db/id page))))
+
+(defn- build-page-query-params
+  [{:keys [block-id anchor]}]
+  (let [query-params (cond-> {}
+                       block-id (assoc :anchor (str "ls-block-" block-id))
+                       anchor (assoc :anchor anchor))]
+    (when (seq query-params)
+      query-params)))
+
+(defn- build-page-redirect
+  [page-name opts]
+  (let [query-params (build-page-query-params opts)]
+    (cond-> (default-page-route (str page-name))
+      query-params
+      (assoc :query-params query-params)
+      (boolean? (:push opts))
+      (assoc :push (:push opts)))))
+
 (defn redirect-to-page!
   "`page-name` can be a block uuid or name, prefer to use uuid than name when possible"
   ([page-name]
    (redirect-to-page! page-name {}))
-  ([page-name {:keys [anchor push click-from-recent? block-id ignore-alias?]
-               :or {click-from-recent? false}
-               :as opts}]
-   (when (or (uuid? page-name)
-             (and (string? page-name) (not (string/blank? page-name))))
-     (let [page (db/get-page page-name)]
-       (if (and (not config/dev?)
-                (or (and (ldb/hidden? page) (not (ldb/property? page)))
-                    (and (ldb/built-in? page) (ldb/private-built-in-page? page))))
-         (notification/show! "Cannot go to an internal page." :warning)
-         (if-let [source (and (not ignore-alias?) (db/get-alias-source-page (state/get-current-repo) (:db/id page)))]
-           (redirect-to-page! (:block/uuid source) (assoc opts :ignore-alias? true))
-           (do
-             (when-let [db-id (:db/id page)]
-               (recent-handler/add-page-to-recent! db-id click-from-recent?))
-             (let [m (cond->
-                      (default-page-route (str page-name))
-
-                       block-id
-                       (assoc :query-params {:anchor (str "ls-block-" block-id)})
-
-                       anchor
-                       (assoc :query-params {:anchor anchor})
-
-                       (boolean? push)
-                       (assoc :push push))]
-               (redirect! m)))))))))
+  ([page-name {:keys [click-from-recent? ignore-alias?]
+                :or {click-from-recent? false}
+                :as opts}]
+   (when (valid-page-ref? page-name)
+      (let [page (db/get-page page-name)]
+        (if (internal-page? page)
+          (notification/show! "Cannot go to an internal page." :warning)
+          (if-let [source (resolve-page-alias page ignore-alias?)]
+            (redirect-to-page! (:block/uuid source) (assoc opts :ignore-alias? true))
+            (do
+              (when-let [db-id (:db/id page)]
+                (recent-handler/add-page-to-recent! db-id click-from-recent?))
+              (redirect! (build-page-redirect page-name opts)))))))))
 
 (defn get-title
   [name path-params]
