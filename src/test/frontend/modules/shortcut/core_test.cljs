@@ -56,5 +56,10 @@
     (is (some #{:editor/add-reaction}
               (shortcut-config/get-category-shortcuts :shortcut.category/block-selection)))))
 
+(deftest test-restoring-built-in-binding
+  (testing "built-in bindings can be recognized when restoring defaults"
+    (is (dh/restoring-built-in-binding? :editor/new-block ["enter"]))
+    (is (not (dh/restoring-built-in-binding? :editor/new-block ["tab"])))))
+
 (comment
   (cljs.test/run-tests))

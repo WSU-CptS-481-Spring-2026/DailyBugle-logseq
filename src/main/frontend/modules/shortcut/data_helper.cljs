@@ -9,7 +9,7 @@
             [frontend.util :as util]
             [lambdaisland.glogi :as log]))
 
-(declare get-group)
+(declare get-group shortcuts-map-full)
 
 ;; function vals->bindings is too time-consuming. Here we cache the results.
 (defn- flatten-bindings-by-id
@@ -96,6 +96,22 @@
 (defn shortcut-item
   [id]
   (get (get-bindings-ids-map) id))
+
+(defn built-in-binding
+  [id]
+  (let [binding (get-in (shortcuts-map-full) [id :binding])]
+    (cond
+      (nil? binding) nil
+      (sequential? binding) (vec binding)
+      :else [binding])))
+
+(defn restoring-built-in-binding?
+  [id binding]
+  (= (built-in-binding id)
+     (cond
+       (nil? binding) nil
+       (sequential? binding) (vec binding)
+       :else [binding])))
 
 ;; returns a vector to preserve order
 (defn binding-by-category [name]

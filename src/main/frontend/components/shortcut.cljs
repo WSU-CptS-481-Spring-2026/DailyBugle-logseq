@@ -338,7 +338,9 @@
         :on-click (fn []
                      ;; TODO: check conflicts for the single same leader key
                     (let [binding' (if (nil? current-binding) [] current-binding)
-                          conflicts (dh/get-conflicts-by-keys binding' handler-id {:exclude-ids #{k}})]
+                          restoring-built-in? (dh/restoring-built-in-binding? k binding')
+                          conflicts (when-not restoring-built-in?
+                                      (dh/get-conflicts-by-keys binding' handler-id {:exclude-ids #{k}}))]
                       (if (seq conflicts)
                         (set-key-conflicts! conflicts)
                         (let [binding' (if (= binding binding') nil binding')]
