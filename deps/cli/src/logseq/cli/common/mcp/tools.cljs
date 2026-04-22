@@ -66,7 +66,11 @@
   (let [datoms (d/datoms db :avet :block/page page-id)
         block-eids (mapv :e datoms)
         block-ents (map #(d/entity db %) block-eids)
-        blocks (map #(assoc % :block/title (db-content/recur-replace-uuid-in-block-title %)) block-ents)]
+        blocks (map (fn [ent]
+                      (-> (into {} ent)
+                          (assoc :db/id (:db/id ent)
+                                 :block/title (db-content/recur-replace-uuid-in-block-title ent))))
+                    block-ents)]
     (->> (otree/blocks->vec-tree db blocks page-id)
          (map #(update % :block/uuid str)))))
 
