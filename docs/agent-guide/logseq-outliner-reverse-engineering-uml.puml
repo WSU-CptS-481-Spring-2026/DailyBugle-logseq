@@ -1,0 +1,93 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+title Logseq Outliner Block Tree Engine - UML Class Diagram
+
+class Block {
+  +uuid: UUID
+  +parent: Ref
+  +page: Ref
+  +order: String
+  +title: String
+  +collapsed: Boolean
+  +createdAt: Long
+  +updatedAt: Long
+}
+
+class Page {
+  +uuid: UUID
+  +name: String
+  +title: String
+}
+
+class TreeNode {
+  +block: Block
+  +children: List<TreeNode>
+  +level: Int
+}
+
+class OutlinerCore {
+  +saveBlock(block, opts)
+  +insertBlocks(blocks, target, opts)
+  +deleteBlocks(blocks, opts)
+  +moveBlocks(blocks, target, opts)
+  +moveBlocksUpDown(blocks, direction, opts)
+  +indentOutdentBlocks(blocks, direction, opts)
+}
+
+class TreeBuilder {
+  +blocksToVecTree(flatBlocks, rootId): List<TreeNode>
+  +nonConsecutiveBlocksToVecTree(flatBlocks): List<TreeNode>
+}
+
+class OrderService {
+  +genKey(left, right): String
+  +genNKeys(count, left, right): List<String>
+}
+
+class DBHelpers {
+  +entity(id): Block
+  +getLeftSibling(block): Block
+  +getRightSibling(block): Block
+  +getDown(block): Block
+  +getBlockParents(blockUuid, opts): Seq
+}
+
+class DataScriptDB {
+  +transact(txData, meta)
+}
+
+class ValidationRules {
+  +validatePageTitleCharacters(pageTitle, meta)
+  +validatePageTitle(pageTitle, meta)
+  +validateBlockTitle(db, newTitle, entity)
+}
+
+class Transaction {
+  +txData: List
+  +txMeta: Map
+}
+
+Block --> Block : parent ref
+Block --> Page : page ref
+TreeNode --> Block : wraps
+OutlinerCore --> Transaction : builds txData or txMeta
+OutlinerCore --> TreeBuilder
+OutlinerCore --> OrderService
+OutlinerCore --> DBHelpers
+OutlinerCore --> DataScriptDB
+OutlinerCore --> ValidationRules
+
+note right of OutlinerCore
+Structural consistency is preserved across an operation,
+but not every operation is one low-level DB transaction.
+moveBlocks uses per-block transact calls inside batch mode.
+Direct outdent can trigger a follow-on move for right siblings.
+end note
+
+note right of ValidationRules
+Validation entry points are sourced from validate.cljs.
+UUID immutability is asserted in core.cljs save logic,
+not in the validation namespace.
+end note
+@enduml
