@@ -603,6 +603,21 @@
            db-property/property-value-content)
      items)))
 
+(defn choice-identity
+  [choice]
+  (or (:db/id choice)
+      (get-in choice [:value :db/id])
+      (:value choice)
+      (:label choice)))
+
+(defn append-choice-once
+  [choices new-choice]
+  (let [choices' (vec (or choices []))
+        identity (choice-identity new-choice)]
+    (if (some #(= identity (choice-identity %)) choices')
+      choices'
+      (conj choices' new-choice))))
+
 (rum/defc select-aux
   [block property {:keys [items selected-choices multiple-choices?] :as opts}]
   (let [selected-choices (->> selected-choices
@@ -879,7 +894,7 @@
                                                                                                    :built-in? false})]
                                      (set-result! result))))
                      :add-new-choice! (fn [new-choice]
-                                        (set-initial-choices! (conj (vec initial-choices) new-choice))))
+                                        (set-initial-choices! #(append-choice-once % new-choice)))) 
         repo (state/get-current-repo)
         classes (:logseq.property/classes property)
         class? (= :class (:logseq.property/type property))
