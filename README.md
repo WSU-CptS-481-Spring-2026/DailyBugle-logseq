@@ -1,218 +1,565 @@
-<!-- logo -->
-<p align="center">
-    <a href="https://logseq.com" alt="Logseq Logo">
-    <img src="https://user-images.githubusercontent.com/25513724/220608753-f33db466-af72-4611-b603-411440c15ed0.png?sanatize=true" height="173"/></a>
-</p>
+# Reverse Engineering Logseq's Outliner Block Tree Engine
 
-<h1 align="center"> Logseq </h1>
+## 1. Purpose of This Reverse-Engineering Artifact
 
-<h4 align="center">
-    A privacy-first, open-source platform for knowledge management and collaboration
-</h4>
+Companion UML artifact: `logseq-outliner-reverse-engineering-uml.puml` in the repository root. If your markdown viewer does not render Mermaid diagrams, use the `.puml` file as the visible UML source.
 
-<div align="center">
-    <a href="https://logseq.com">Home Page</a> |
-    <a href="https://blog.logseq.com/">Blog</a> |
-    <a href="https://docs.logseq.com/">Documentation</a> |
-    <a href="https://discuss.logseq.com/t/logseq-product-roadmap/34267">Roadmap</a>
-</div>
-<br></br>
+This document reverse engineers a **significant Logseq component**: the **Outliner Block Tree Engine**.
 
-<p align="center">
-    <a href="https://github.com/logseq/logseq/releases/latest/">
-        <img src="https://img.shields.io/badge/Download_Logseq-100000?style=for-the-badge&logo=flatpak&logoColor=white&labelColor=002b36&color=85c8c8"
-            alt="Download Logseq"/></a>
-</p>
+This is not a general architecture summary. It is a **reconstruction-oriented specification** intended to help another developer recreate the component with equivalent responsibilities, data structures, and control flow.
 
-<!-- social badges -->
-<p align="center">
-    <a href="https://discuss.logseq.com">
-        <img src="https://img.shields.io/badge/forum-Logseq-blue.svg?&color=%2385c8c8&logo=discourse&style=for-the-badge"
-            alt="forum"></a>
-    <a href="https://discord.gg/KpN4eHY">
-        <img src="https://img.shields.io/discord/725182569297215569?color=%2385c8c8&label=Discord&logo=discord&style=for-the-badge"
-            alt="chat on Discord"></a>
-    <a href="https://twitter.com/intent/follow?screen_name=logseq">
-        <img src="https://img.shields.io/badge/twitter-%40logseq-blue.svg?&color=%2385c8c8&logo=twitter&style=for-the-badge"
-            alt="follow on Twitter"></a>
-</p>
+It contains:
+- a clearly bounded component definition
+- source-to-design traceability back to Logseq files
+- a structural model of the component
+- behavioral models for the most important operations
+- invariants and algorithms that must hold for a correct implementation
+- a step-by-step recreation plan
 
-<!-- dev badges -->
-<p align="center">
-    <a href="https://github.com/logseq/logseq/graphs/contributors" alt="Contributors">
-        <img src="https://img.shields.io/github/contributors/logseq/logseq?color=%2385c8c8&style=for-the-badge"/></a>
-    <a href="#-backers" alt="Backers on Open Collective">
-        <img src="https://img.shields.io/opencollective/backers/logseq?color=%2385c8c8&style=for-the-badge"/></a>
-    <a href="#-sponsors" alt="Sponsors on Open Collective">
-        <img src="https://img.shields.io/opencollective/sponsors/logseq?color=%2385c8c8&style=for-the-badge"/></a>
-    <a href="https://github.com/logseq/logseq/blob/master/LICENSE.md" alt="Activity">
-        <img src="https://img.shields.io/github/license/logseq/logseq?color=%2385c8c8&style=for-the-badge"/></a>
-    <a href="https://github.com/logseq/logseq/releases">
-        <img src="https://img.shields.io/github/v/release/logseq/logseq?color=%2385c8c8&style=for-the-badge"
-            alt="latest release version"></a>
-</p>
+## 2. Selected Component
 
-## Table of Contents
+### Component name
+**Outliner Block Tree Engine**
 
-  * [<g-emoji class="g-emoji" alias="database" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f680.png">🚀</g-emoji> Database Version](#-database-version)
-  * [<g-emoji class="g-emoji" alias="thinking" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f914.png">🤔</g-emoji> Why Logseq?](#-why-logseq)
-  * [<g-emoji class="g-emoji" alias="eyes" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f440.png">👀</g-emoji> How can I use it?](#-how-can-i-use-it)
-  * [<g-emoji class="g-emoji" alias="books" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4da.png">📚</g-emoji> Learn more](#-learn-more)
-  * [🫶 Support Logseq Development](#-support-logseq-development)
-  * [<g-emoji class="g-emoji" alias="bulb" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f4a1.png">💡</g-emoji> Feature requests](#-feature-requests)
-  * [<g-emoji class="g-emoji" alias="electric_plug" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f50c.png">🔌</g-emoji> Plugin API](#-plugin-api)
-  * [<g-emoji class="g-emoji" alias="star2" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f31f.png">🌟</g-emoji> Contributing to Logseq](#-contributing-to-logseq)
-    * [<g-emoji class="g-emoji" alias="hammer_and_wrench" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f6e0.png">🛠️</g-emoji> Setting Up a Development Environment](#️-setting-up-a-development-environment)
-  * [<g-emoji class="g-emoji" alias="sparkles" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/2728.png">✨</g-emoji> Inspiration](#-inspiration)
-* [<g-emoji class="g-emoji" alias="pray" fallback-src="https://github.githubassets.com/images/icons/emoji/unicode/1f64f.png">🙏</g-emoji> Thank You](#-thank-you)
+### Why this component
+This is a strong reverse-engineering target because it is:
+- central to Logseq's core product behavior
+- large enough to be a meaningful subsystem
+- algorithmically interesting because it mixes tree editing with fractional ordering
+- reusable: another developer could recreate this subsystem in a different application
 
-## 🚀 Database Version
+### Component boundary
+The component is responsible for:
+- representing blocks as a parent/child tree
+- ordering sibling blocks
+- building nested trees from flat block records
+- applying structural operations such as insert, delete, move, indent, and outdent
+- emitting database transactions that preserve tree integrity
 
-The Database version (DB version) of Logseq introduces DB graphs. [See this page](https://github.com/logseq/docs/blob/master/db-version.md) to get an overview of the main features for DB graphs. If you are an existing user, [see changes with the DB version](https://github.com/logseq/docs/blob/master/db-version-changes.md). The DB version has its own new mobile app (on iOS, with Android coming soon)! To participate in the mobile app alpha, [please complete this brief form](https://forms.gle/nfefJv51jUuULbFB9). The DB version also has a new sync approach, RTC (Real Time Collaboration)! You can use it to sync graphs between multiple devices or collaborate with others. To participate in the RTC alpha, [please fill out this form](https://forms.gle/YSyF4WfKPSDuwyjH6).
+The component is **not** responsible for:
+- rendering the editor UI
+- parsing markdown syntax in full
+- sync/network transport
+- plugin APIs
+- Electron/browser bootstrapping
 
-The DB version is in beta status while the new mobile app and RTC is in alpha. This means that **data loss is possible** so we recommend [automated backups](https://github.com/logseq/docs/blob/master/db-version.md#automated-backup) or [regular SQLite DB backups](https://github.com/logseq/docs/blob/master/db-version.md#graph-export). We recommend you create a dedicated test graph and choose one project that’s not crucial for you.
+## 3. Source Artifacts Used
 
-To get started with the DB version:
-* To try the latest web version, go to https://test.logseq.com/.
-* To try the latest desktop version, login to Github and go to https://github.com/logseq/logseq/actions/workflows/build-desktop-release.yml and click on the latest release. Scroll to the bottom and under the `Artifacts` section download the artifact for your operating system.
-* To report bugs, please file them at https://github.com/logseq/db-test/issues.
-* For feature or enhancement requests, please file them on Discord on the `#db-feedback` channel.
-* For discussion, see the `#db-chat` channel in Discord.
+### Primary source artifacts
+- `deps/outliner/src/logseq/outliner/core.cljs`
+- `deps/outliner/src/logseq/outliner/tree.cljs`
+- `deps/outliner/src/logseq/outliner/op.cljs`
+- `deps/outliner/src/logseq/outliner/validate.cljs`
+- `deps/db/src/logseq/db/common/order.cljs`
+- `deps/db/src/logseq/db/frontend/schema.cljs`
+- `deps/db/src/logseq/db/frontend/entity_plus.cljs`
+- `deps/db/src/logseq/db.cljs`
 
-## 🤔 Why Logseq?
+### Supporting artifacts
+- `src/main/frontend/handler/editor.cljs`
+- `src/test/frontend/modules/outliner/core_test.cljs`
+- `src/test/frontend/handler/export_test.cljs`
 
-[Logseq](https://logseq.com) is a **knowledge management** and **collaboration** platform. It focuses on **privacy**, **longevity**, and [**user control**](https://www.gnu.org/philosophy/free-sw.en.html). Logseq offers a range of **powerful tools** for **knowledge management**, **collaboration**, **PDF annotation**, and **task management** with support for multiple file formats, including **Markdown** and **Org-mode**, and **various features** for organizing and structuring your notes.
+## 4. Reverse-Engineering Goal
 
-In addition to its core features, Logseq has a growing ecosystem of **plugins** and **themes** that enable a wide range of workflows and **customization** options. **Mobile apps** are also available, providing access to most of the features of the desktop application. Whether you're a student, a professional, or anyone who values a clear and organized approach to managing your ideas and notes, Logseq is an excellent choice for anyone looking to improve their productivity and streamline their workflow.
+### Source artifact
+ClojureScript implementation of Logseq's outliner subsystem.
 
-![logseq-demo](https://user-images.githubusercontent.com/25513724/221387376-4dc419c2-0d0a-460c-a920-2d211e78b456.gif)
+### Target artifacts
+This document produces:
+- a **component model**
+- a **domain/class model**
+- **sequence diagrams** for core operations
+- a **recreation guide** describing how to rebuild the subsystem
 
-<a href="https://github.com/logseq/logseq/releases/latest/">
-        <img src="https://img.shields.io/badge/Download_Logseq-100000?style=for-the-badge&logo=flatpak&logoColor=white&labelColor=002b36&color=85c8c8"
-            align="right"
-            alt="Download Logseq"/></a>
+## 5. What a Developer Must Recreate
 
-## 👀 How can I use it?
+To recreate this component, a developer must implement all of the following capabilities:
 
-To start using Logseq, follow these simple steps:
+1. A persistent block model with stable IDs.
+2. Parent-based tree structure using references rather than embedded child arrays.
+3. Lexicographically sortable sibling order values.
+4. Tree reconstruction from flat records.
+5. Insert, delete, move, indent, and outdent operations.
+6. Transaction generation and persistence behavior that update both structure and metadata while preserving consistency across the full operation.
+7. Validation rules that prevent illegal structural states.
 
-1. [Download](https://github.com/logseq/logseq/releases/latest) the latest version of Logseq
-2. Install Logseq on your device and launch the application
-3. Start writing ✍️
+If these seven capabilities are implemented, the recreated subsystem will behave like the original in the areas this document covers.
 
-That's it! You can now enjoy the benefits of using Logseq to streamline your workflow, manage your projects, and stay on top of your goals. Have fun! 🎉
+## 6. Architectural Context
 
-**Linux users**: Use the automated installer script for the best experience:
+```mermaid
+flowchart LR
+    UI[Editor / Commands / Drag & Drop] --> OPS[Outliner Operation Layer]
+    OPS --> CORE[Outliner Core]
+    CORE --> TREE[Tree Builder]
+    CORE --> ORDER[Fractional Order Service]
+    CORE --> DB[DataScript + sibling/navigation helpers]
+    DB --> STORE[(Graph Database)]
+    CORE --> VALIDATE[Outliner validation entry points]
+```
 
-   ```bash
-   # Download and run the installer
-   curl -fsSL https://raw.githubusercontent.com/logseq/logseq/master/scripts/install-linux.sh | bash
+### Interpretation
+- The UI does not manipulate block structure directly.
+- UI actions are translated into outliner operations.
+- The outliner core computes transaction data and, for some operations, orchestrates multiple low-level transacts inside batch mode.
+- The order service generates new sibling order keys.
+- The DB side is mostly a set of DataScript and sibling/navigation helpers rather than a clean standalone adapter boundary.
 
-   # Or install a specific version
-   curl -fsSL https://raw.githubusercontent.com/logseq/logseq/master/scripts/install-linux.sh | bash -s -- 0.10.14
+## 7. Structural Model
 
-   # For user-specific installation (no root required)
-   curl -fsSL https://raw.githubusercontent.com/logseq/logseq/master/scripts/install-linux.sh | bash -s -- --user
-   ```
+### 7.1 Core domain objects
 
-## 📚 Learn more
+| Entity | Role | Required fields |
+|---|---|---|
+| `Block` | atomic tree node | `uuid`, `parent`, `page`, `order`, `title` |
+| `Page` | page entity referenced by blocks | `uuid`, `name`, `title` |
+| `BlockTree` | reconstructed nested view | `block + children[] + level` |
+| `Transaction` | tx-data or tx batch metadata | list of add/retract/update operations |
+| `OrderKey` | sibling ordering token | sortable string |
 
-* Website: [logseq.com](https://logseq.com)
-* Documentation: [docs.logseq.com](https://docs.logseq.com)
-  * FAQ page: [Logseq Docs:  FAQ](https://docs.logseq.com/#/page/faq)
-* Blog: [blog.logseq.com](https://blog.logseq.com)
-  * Please visit our [About page](https://blog.logseq.com/about) for the latest updates.
-* Forum: [discuss.logseq.com](https://discuss.logseq.com) - Where we answer questions, discuss workflows, and share tips
-  * FAQ forum section: [Logseq Forum: FAQ](https://discuss.logseq.com/c/faq/6)
-* [Awesome Logseq](https://github.com/logseq/awesome-logseq) - Awesome Logseq extensions and resources created by the community <3
-* Twitter: [@Logseq](https://twitter.com/logseq)
-* Discord: [https://discord.com/invite/KpN4eHY](https://discord.com/invite/KpN4eHY)
-  * [中文 Discord](https://discord.gg/xYqcrXWymg)
+### 7.2 Persistent attributes required for recreation
 
-## 🫶 Support Logseq Development
+| Attribute | Meaning | Notes |
+|---|---|---|
+| `:block/uuid` | stable block identity | immutable after creation |
+| `:block/parent` | parent block/page reference | drives tree structure |
+| `:block/page` | owning page | propagated during move operations |
+| `:block/order` | sibling sort key | string, lexicographic |
+| `:block/title` | textual content | content for blocks/pages |
+| `:block/name` | normalized page name | used for page lookup |
+| `:block/collapsed?` | UI-visible collapse state | required for indent edge case |
+| `:block/created-at` | creation time | metadata |
+| `:block/updated-at` | last modification time | metadata |
 
-If you find Logseq useful and want to help us keep the project growing, please consider supporting our contributors on [Open Collective](https://opencollective.com/logseq). Your support shows our contributors that their efforts are appreciated and motivates them to continue their excellent work. Every contribution, no matter how small, helps us keep improving Logseq.
+### 7.3 UML class diagram
 
-## 💡 Feature requests
+```mermaid
+classDiagram
+    class Block {
+        +UUID uuid
+        +Ref parent
+        +Ref page
+        +String order
+        +String title
+        +Boolean collapsed
+        +Long createdAt
+        +Long updatedAt
+    }
 
-We value your input on improving Logseq and making it more useful for you. If you have any ideas or feature requests, please share them in the [Logseq Forum: Feature
-Requests](https://discuss.logseq.com/new-topic?category=feature-requests) section.
+    class Page {
+        +UUID uuid
+        +String name
+        +String title
+    }
 
-Your feedback helps us understand our users' needs and prioritize the features that matter most to you. We appreciate your time and effort in sharing your thoughts with us.
+    class TreeNode {
+        +Block block
+        +List~TreeNode~ children
+        +Int level
+    }
 
-We appreciate your support, and we look forward to hearing your ideas!
+    class OutlinerCore {
+        +saveBlock(block, opts)
+        +insertBlocks(blocks, target, opts)
+        +deleteBlocks(blocks, opts)
+        +moveBlocks(blocks, target, opts)
+        +moveBlocksUpDown(blocks, direction, opts)
+        +indentOutdentBlocks(blocks, direction, opts)
+    }
 
-## 🔌 Plugin API
+    class TreeBuilder {
+        +blocksToVecTree(flatBlocks, rootId) List~TreeNode~
+        +nonConsecutiveBlocksToVecTree(flatBlocks) List~TreeNode~
+    }
 
-Logseq provides a plugin API that enables developers to create custom plugins and extend the functionality of Logseq. The plugin API documentation is available at [plugins-doc.logseq.com](https://plugins-doc.logseq.com/), where you can find everything needed to get started with plugin development.
+    class OrderService {
+        +genKey(left, right) String
+        +genNKeys(count, left, right) List~String~
+    }
 
-We value your feedback and suggestions on how to improve our documentation. Please do not hesitate to contact us with any comments or questions. Your input helps us to provide a better experience for our users and developers.
+    class DBHelpers {
+        +entity(id) Block
+        +getLeftSibling(block) Block
+        +getRightSibling(block) Block
+        +getDown(block) Block
+        +getBlockParents(blockUuid, opts) Seq
+    }
 
-Thank you for using Logseq, and we look forward to seeing what you create with our plugin API!
+    class DataScriptDB {
+        +transact(txData, meta)
+    }
 
-## 🌟 Contributing to Logseq
+    class ValidationRules {
+        +validatePageTitleCharacters(pageTitle, meta)
+        +validatePageTitle(pageTitle, meta)
+        +validateBlockTitle(db, newTitle, entity)
+    }
 
-To start contributing to Logseq, please read [CONTRIBUTING.md](CONTRIBUTING.md).
-There are ways to contribute [with code](https://github.com/logseq/logseq/blob/master/CONTRIBUTING.md#code-contributions) and [without code](https://github.com/logseq/logseq/blob/master/CONTRIBUTING.md#-how-can-i-help). We welcome all
-contributions, big or small, and we appreciate your time and effort in helping
-us improve Logseq. We look forward to your contributions 🚀
+    Block --> Block : parent ref
+    Block --> Page : page ref
+    TreeNode --> Block : wraps
+    OutlinerCore --> TreeBuilder
+    OutlinerCore --> OrderService
+    OutlinerCore --> DBHelpers
+    OutlinerCore --> DataScriptDB
+    OutlinerCore --> ValidationRules
+```
 
-### 🛠️ Setting Up a Development Environment
+### 7.4 Accuracy notes from source
 
-If you want to set up a development environment for the Logseq web or desktop app, please refer to the [Develop Logseq](docs/develop-logseq.md) guide for macOS/Linux users and the [Develop Logseq on Windows](docs/develop-logseq-on-windows.md) guide for Windows users.
+- Blocks do **not** inherit from pages. The relationship is reference-based: `:block/parent` encodes tree structure and `:block/page` points to the owning page.
+- Validation entry points come from `outliner/validate.cljs`, notably `validate-page-title-characters`, `validate-page-title`, and `validate-block-title`.
+- UUID immutability is asserted in `outliner/core.cljs` during save, not by the validation namespace.
 
-In addition to these guides, you can also find other helpful resources in the [docs/](docs/) folder, such as the [Guide for Contributing to Translations](docs/contributing-to-translations.md), the [Docker Web App Guide](docs/docker-web-app-guide.md) and the [mobile development guide](docs/develop-logseq-on-mobile.md)
+## 8. Behavioral Contracts and Invariants
 
-## ✨ Inspiration
+A recreated implementation must preserve these invariants.
 
-Logseq is inspired by several unique tools and projects, including [Roam Research](https://roamresearch.com/), [Org Mode](https://orgmode.org/), [TiddlyWiki](https://tiddlywiki.com/), [Workflowy](https://workflowy.com/), and [Cuekeeper](https://github.com/talex5/cuekeeper).
+### 8.1 Identity invariants
+- A block UUID is assigned once and must not be changed.
+- A page UUID is assigned once and must not be changed.
 
-We owe a huge debt of gratitude to the developers and creators of these projects, and we hope that Logseq can continue to build on their innovative ideas and make them accessible to a broader audience.
+### 8.2 Tree invariants
+- Every non-root block has exactly one parent.
+- Every block belongs to exactly one page.
+- A block cannot become its own ancestor.
+- Sibling ordering is determined only by `order`.
 
-Thank you to all those who inspire us, and we look forward to seeing what the Logseq community will create with this tool!
+### 8.3 Ordering invariants
+- Sibling order keys must be unique within a sibling set.
+- Sorting siblings lexicographically by `order` must reproduce the intended UI order.
+- Inserting a block between two siblings must not require rewriting all later siblings.
 
-Logseq is also made possible by the following projects:
+### 8.4 Transaction invariants
+- A structural operation must preserve consistent `parent`, `page`, and `order` state across the full operation, even when implemented as more than one low-level DataScript transaction.
+- `move-blocks` performs per-block `ldb/transact!` calls inside batch mode rather than always emitting one DB transaction.
+- Direct outdent may trigger a follow-on internal move for right siblings, so the visible operation can span multiple low-level transacts.
+- Moving a subtree between pages must update `page` for the moved node and all descendants.
+- Deleting a subtree must retract every descendant, not just the root node.
 
-* [Clojure & ClojureScript](https://clojure.org/) - A dynamic, functional, general-purpose programming language
-* [DataScript](https://github.com/tonsky/datascript) - An immutable database and Datalog query-engine for Clojure,
-ClojureScript and JS
-* [OCaml](https://ocaml.org/) & [Angstrom](https://github.com/inhabitedtype/angstrom), for the document parser [mldoc](https://github.com/logseq/mldoc)
-* [isomorphic-git](https://isomorphic-git.org/) - A pure JavaScript implementation of Git for NodeJS and web browsers
-* [SCI](https://github.com/borkdude/sci) - A Small Clojure Interpreter
+## 9. Key Design Decision: Fractional Ordering
 
-# 🙏 Thank You
+The recreated component should use **fractional indexing** rather than integer positions.
 
-We want to express our sincere gratitude to our [Open Collective](https://opencollective.com/logseq) **sponsors**, **backers**, and **contributors**. Your support and contributions allow us to continue developing and improving Logseq. Thank you for being a part of our community and helping us make Logseq the best it can be!
+### Why
+If sibling positions are integers:
+- inserting between two siblings forces renumbering
+- concurrent edits become harder to merge
+- bulk moves are more expensive
 
-## 💎 Sponsors
+If sibling positions are fractional sortable strings:
+- insertion between siblings is cheap
+- order maintenance is local
+- drag-and-drop becomes easier to implement while preserving structural consistency
 
-<p align="center">
-    <a href="https://opencollective.com/logseq#sponsor"> [Become a sponsor]</a>
-</p>
-<p align="center">
-    <a href="https://opencollective.com/logseq" alt="Sponsors on Open Collective">
-        <img src="https://opencollective.com/logseq/tiers/sponsors.svg?avatarHeight=42&width=600"/></a>
-</p>
+### Required behavior of the order service
+Given `left` and `right`, generate a key `k` such that:
+- `left < k < right` if both exist
+- `k < right` if only right exists
+- `left < k` if only left exists
+- some default middle key if neither exists
 
-## 🌟 Contributors
+The implementation details may vary, but the recreated system must preserve this behavior.
 
-<p align="center">
-    <a href="https://github.com/logseq/logseq/graphs/contributors">
-        <img src="https://contrib.rocks/image?repo=logseq/logseq&max=300&columns=14" width="600"/></a>
-</p>
+## 10. Core Operations
 
-<!-- JetBrains Logo -->
-<p align="center">
-    <a href="https://jetbrains.com" alt="JetBrains">
-        <img src="docs/assets/jetbrains.svg"/></a>
-</p>
+## 10.1 Insert Blocks
 
-<!-- ProductHunt Review Button -->
-<p align="center">
-    <a href="https://www.producthunt.com/posts/logseq?utm_source=badge-review&utm_medium=badge&utm_souce=badge-logseq#discussion-body"
-    target="_blank"><img
-        src="https://api.producthunt.com/widgets/embed-image/v1/review.svg?post_id=298158&theme=dark"
-        align="center"
-        alt="Logseq - Your joyful, private digital garden | Product Hunt" style="width: 250px; height: 54px;"
-        width="250" height="54"/></a>
-</p>
+### Purpose
+Create one or more blocks as siblings or children of a target.
+
+### Inputs
+- flat or nested new block structures
+- target block/page
+- options such as `sibling?`, `keep-uuid?`, `replace-empty-target?`
+
+### Outputs
+- transaction datoms that create blocks
+- new parent/page/order assignments
+
+### Required algorithm
+1. Determine insertion mode: sibling or child.
+2. Determine parent block/page of inserted nodes.
+3. Determine left and right boundaries at insertion point.
+4. Generate one order key per inserted root-level sibling.
+5. Generate UUIDs if UUID preservation is not requested.
+6. Map nested children to newly created parents.
+7. Emit transaction records.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI
+    participant Op as OutlinerCore.insertBlocks
+    participant Order as OrderService
+    participant DB as DBHelpers
+    participant Store as DataScriptDB
+
+    User->>UI: Press Enter / Paste / Insert
+    UI->>Op: insertBlocks(blocks, target, opts)
+    Op->>DB: load target, parent, siblings
+    DB-->>Op: target context
+    Op->>Order: genNKeys(count, leftOrder, rightOrder)
+    Order-->>Op: new order keys
+    Op->>Op: assign uuid/parent/page/order
+    Op->>Store: transact(txData)
+    Store-->>UI: committed
+```
+
+## 10.2 Delete Blocks
+
+### Purpose
+Delete selected blocks while preserving consistency.
+
+### Required behavior
+- If a selected block contains descendants, descendants are deleted too.
+- If both a parent and child are selected, only the parent should be processed as a root deletion.
+
+### Required algorithm
+1. Reduce the selected set to top-level roots.
+2. For each root, collect all descendants.
+3. Emit retract-entity operations for all collected nodes.
+4. Apply as a structurally consistent deletion change set.
+
+## 10.3 Move Blocks
+
+### Purpose
+Move blocks to another sibling position or another parent.
+
+### Required behavior
+- Moving within the same parent should only change order if position changed.
+- Moving to a different parent must update both parent and page context.
+- Descendants inherit page changes from the moved root.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI
+    participant Op as OutlinerCore.moveBlocks
+    participant DB as DBHelpers
+    participant Order as OrderService
+    participant Store as DataScriptDB
+
+    User->>UI: Drag block to new location
+    UI->>Op: moveBlocks(blocks, target, opts)
+    Op->>DB: read current parents/pages
+    Op->>DB: read destination siblings
+    Op->>Order: genNKeys(count, leftOrder, rightOrder)
+    Order-->>Op: destination order keys
+    loop per moved top-level block in batch mode
+        Op->>Op: update parent/page/order recursively
+        Op->>Store: transact(txData, meta)
+    end
+```
+
+## 10.4 Indent / Outdent
+
+### Purpose
+Change nesting level while preserving visible ordering.
+
+### Indent contract
+- The block's new parent becomes its left sibling.
+- If the left sibling is collapsed, it may need to be expanded.
+
+### Outdent contract
+- The block moves to become a sibling of its current parent.
+- In the standard outdent case, right siblings may become children of the outdented block to preserve visual grouping.
+
+### Sequence diagram
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant UI
+    participant Op as OutlinerCore.indentOutdentBlocks
+    participant DB as DBHelpers
+    participant Order as OrderService
+    participant Store as DataScriptDB
+
+    User->>UI: Press Tab / Shift+Tab
+    UI->>Op: indentOutdentBlocks(blocks, direction, opts)
+    Op->>DB: get siblings and parent context
+    DB-->>Op: structural context
+    Op->>Order: genKey or genNKeys(...)
+    Order-->>Op: new order position
+    Op->>Op: compute primary move
+    Op->>Store: transact(primaryTx, meta)
+    opt direct outdent with right siblings
+        Op->>Op: compute follow-on move for right siblings
+        Op->>Store: transact(followOnTx, meta)
+    end
+```
+
+## 10.5 Save Block
+
+### Purpose
+Persist block content edits while keeping references and metadata consistent.
+
+### Required behavior
+- Update block content.
+- Retract stale derived/reference attributes when necessary.
+- Preserve UUID.
+- Update timestamps.
+- Optionally update page metadata if page title changed.
+
+## 11. Tree Reconstruction Logic
+
+The storage model is flat. The UI model is nested.
+
+### Required reconstruction algorithm
+Input:
+- a set of flat blocks, each with `parent` and `order`
+- a root ID
+
+Output:
+- nested tree nodes ordered by sibling order
+
+### Algorithm
+1. Group blocks by parent ID.
+2. For each parent group, sort children by `order`.
+3. Recursively build child lists.
+4. Assign depth level during recursion.
+5. Return the root's children or the root-inclusive tree depending on caller need.
+
+### Tree builder pseudocode
+
+```text
+function buildTree(flatBlocks, rootId):
+    grouped = groupByParent(flatBlocks)
+
+    function visit(parentId, level):
+        children = sortByOrder(grouped[parentId])
+        result = []
+        for child in children:
+            node = TreeNode(block=child, level=level)
+            node.children = visit(child.id, level + 1)
+            result.append(node)
+        return result
+
+    return visit(rootId, 1)
+```
+
+## 12. Validation Rules Needed for Correct Recreation
+
+A recreated subsystem should reject or guard against:
+- UUID mutation of existing blocks
+- moving a block under itself or one of its descendants
+- illegal page title changes
+- no-op moves that would create unnecessary transactions
+- operations that would produce duplicate or invalid order placement
+
+Concrete source-aligned validation and guard points include:
+- `validate-page-title-characters`
+- `validate-page-title`
+- `validate-block-title`
+- UUID immutability assertion in `core.cljs`
+- `move-to-original-position?` for no-op move suppression
+
+## 13. Interface Specification for a Recreated Module
+
+A developer recreating the subsystem should expose an API roughly like this:
+
+```text
+saveBlock(block, opts) -> Transaction
+insertBlocks(blocks, target, opts) -> Transaction
+deleteBlocks(blockIds, opts) -> Transaction
+moveBlocks(blockIds, target, opts) -> Transaction
+moveBlocksUpDown(blockIds, direction, opts) -> Transaction
+indentOutdentBlocks(blockIds, direction, opts) -> Transaction
+buildTree(flatBlocks, rootId) -> TreeNode[]
+```
+
+## 14. Source-to-Design Traceability
+
+| Source file | Responsibility in source | Reverse-engineered role |
+|---|---|---|
+| `outliner/core.cljs` | structural editing operations | `OutlinerCore` |
+| `outliner/tree.cljs` | tree reconstruction and persistence protocol | `TreeBuilder` + persistence contract |
+| `outliner/op.cljs` | operation dispatch layer | operation façade |
+| `outliner/validate.cljs` | title and graph validations | validation entry points |
+| `db/common/order.cljs` | fractional ordering | `OrderService` |
+| `db.cljs` | sibling and page navigation | DB sibling/navigation helpers |
+| `schema.cljs` | block/page schema | domain model constraints |
+
+## 15. Recreation Plan for Another Developer
+
+A developer could recreate this component in the following order.
+
+### Step 1: Implement the persistent model
+- Create `Block` and `Page` entities.
+- Store `parent`, `page`, and `order` explicitly.
+- Enforce immutable stable IDs.
+
+### Step 2: Implement sibling ordering
+- Add an order-key generator with between-key support.
+- Verify lexicographic sort reproduces intended order.
+
+### Step 3: Implement tree reconstruction
+- Build `blocksToTree(flatBlocks, rootId)`.
+- Add tests for nested hierarchies and ordering.
+
+### Step 4: Implement structural persistence
+- Insert
+- Delete subtree
+- Move subtree
+- Indent
+- Outdent
+
+Design note:
+- Do not assume every user-visible operation maps to exactly one low-level DB transaction. Source-accurate behavior is closer to "preserve consistency across the operation", with batch mode and follow-on moves where needed.
+
+### Step 5: Add validation rules
+- prevent cycles
+- prevent invalid moves
+- reject UUID mutation
+
+### Step 6: Add tests
+At minimum:
+- insert sibling
+- insert child
+- move within same parent
+- move across parents/pages
+- indent
+- outdent
+- delete subtree
+- rebuild tree from flat blocks
+
+## 16. Minimum Test Matrix for Recreation
+
+| Test | Why it matters |
+|---|---|
+| insert between siblings | validates order generation |
+| append at end | validates open-ended key generation |
+| delete subtree | validates recursive removal |
+| move across pages | validates page propagation |
+| indent under left sibling | validates parent reassignment |
+| outdent with right siblings | validates structural preservation |
+| rebuild nested tree | validates flat-to-nested transformation |
+| reject cycle move | validates safety invariant |
+
+## 17. What Insights Were Gained Through Reverse Engineering
+
+The reverse-engineering process revealed that Logseq's outliner is best understood not as a UI widget, but as a **tree transaction engine** with three essential ideas:
+
+1. **Tree structure is stored indirectly** through parent references, not nested arrays.
+2. **Sibling order is a first-class concern** solved with fractional ordering.
+3. **Edits are expressed as tx-data plus batched low-level transacts**, which makes undo/redo and structural consistency feasible without requiring every operation to be one DB transaction.
+
+That insight is what makes recreation possible: if a developer reproduces the same data model, ordering strategy, validation boundaries, and structural persistence semantics, they can rebuild the subsystem even in another language or framework.
+
+## 18. Final Recreation Summary
+
+To recreate Logseq's outliner block tree engine, implement:
+- a flat persistent block store
+- parent references for tree structure
+- sortable fractional order keys for siblings
+- a recursive tree builder
+- structural editing operations that preserve consistency across one or more low-level database transactions
+- validation rules that preserve tree correctness
+
+That is the essence of the component.
