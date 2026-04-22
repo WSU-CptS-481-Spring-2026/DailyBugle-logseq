@@ -20,30 +20,47 @@
 
 (defonce emojis (vals (bean/->clj (gobj/get emoji-data "emojis"))))
 
+(defn- normalize-icon-input
+  [icon']
+  (if (or (string? icon') (keyword? icon'))
+    {:type :tabler-icon :id (name icon')}
+    icon'))
+
+(defn- valid-icon?
+  [{:keys [type id]}]
+  (and (contains? #{:emoji :tabler-icon} type)
+       (string? id)
+       (not (string/blank? id))))
+
+(defn- render-icon-item
+  [icon' opts]
+  (case (:type icon')
+    :emoji
+    [:span.ui__icon
+     [:em-emoji (merge {:id (:id icon')
+                        :style {:line-height 1}}
+                       opts)]]
+
+    :tabler-icon
+    (ui/icon (:id icon') opts)
+
+    icon'))
+
+(defn- wrap-icon-color
+  [item icon']
+  [:span.inline-flex.items-center.ls-icon-color-wrap
+   {:style {:color (or (:color icon') "inherit")}}
+   item])
+
 (defn icon
   [icon' & [opts]]
-  (let [icon' (if (or (string? icon') (keyword? icon'))
-                {:type :tabler-icon :id (name icon')} icon')]
-    (if (and (contains? #{:emoji :tabler-icon} (:type icon'))
-             (string? (:id icon'))
-             (not (string/blank? (:id icon'))))
-      (let [color? (:color? opts)
-            opts (dissoc opts :color?)
-            item (cond
-                   (and (= :emoji (:type icon')) (:id icon'))
-                   [:span.ui__icon
-                    [:em-emoji (merge {:id (:id icon')
-                                       :style {:line-height 1}}
-                                      opts)]]
-
-                   (and (= :tabler-icon (:type icon')) (:id icon'))
-                   (ui/icon (:id icon') opts)
-
-                   :else
-                   icon')]
+  (let [icon' (normalize-icon-input icon')
+        color? (:color? opts)
+        opts (dissoc opts :color?)]
+    (if (valid-icon? icon')
+      (let [item (render-icon-item icon' opts)]
         (if color?
-          [:span.inline-flex.items-center.ls-icon-color-wrap
-           {:style {:color (or (some-> icon' :color) "inherit")}} item]
+          (wrap-icon-color item icon')
           item))
       (do
         (js/console.error "Invalid icon")
